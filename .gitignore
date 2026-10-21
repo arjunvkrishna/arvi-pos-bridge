@@ -1,0 +1,26 @@
+# PlatformIO & Build outputs
+.pio/
+.pioenvs/
+.piolibdeps/
+.clangd/
+compile_commands.json
+*.bin
+*.elf
+*.hex
+
+# IDE & Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables & secrets
+.env
+.env.*
+*.env
+!*.example
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
