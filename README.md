@@ -1,48 +1,68 @@
-# Neram POS - ESP32-S3 Print Bridge
+# ARVI POS - Thermal Printer Cloud Bridge
 
-Firmware for an ESP32-S3-N16R8 (16 MB flash, 8 MB PSRAM) that long-polls the Neram POS backend over **HTTPS** and prints jobs to LAN thermal printers (ESC/POS, TCP 9100). An SSD1306/SH1106 OLED and the onboard RGB LED show live status.
+Firmware for an ESP32-S3 microcontroller (ESP32-S3-N16R8, 16 MB flash, 8 MB PSRAM) that securely communicates with the ARVI POS backend over **HTTPS** and dispatches print jobs to local area network (LAN) thermal printers (ESC/POS protocol, TCP port 9100).
 
-## Configuration (env files in this folder)
+Equipped with an SSD1306/SH1106 OLED display and an onboard WS2812 RGB LED for real-time visual system telemetry.
 
-All settings come from env files in **this folder** (never the backend's root `.env`):
+---
 
-| File | Used by |
-|---|---|
-| `.env` | `./flash-esp32.sh` (default) |
-| `.env.stg` | `./flash-esp32.sh stg` |
-| `.env.prod` | `./flash-esp32.sh prod` |
+## Architecture & How It Works
 
-Copy `.env.example`, fill it in. Keys: `BACKEND_BASE_URL` (https only: `https://stg.neram.store` / `https://pos.neram.store`), `PRINTER_BRIDGE_TOKEN`, `WIFI_SSID`, `WIFI_PASSWORD`, optional `BRIDGE_ID`. **Printer IPs are not needed here**: Bill, Kitchen KOT and Juice KOT addresses are managed in the POS UI and synced to the bridge (`*_PRINTER_HOST/PORT` keys are optional boot hints). Use a different token per environment. The files are gitignored.
+```
+networkTask          long-poll /api/printer/bridge/poll (TLS) -> decode -> per-printer queue -> ack receipt
+PrintBill/Kot/Juice  dedicated worker per printer (Juice & Kitchen prioritized ahead of Bill):
+                     claim -> TCP raw socket stream -> complete | fail report
+maintenance          config sync (60s), printer health probes (30s), heartbeat (20s), lease renewals
+```
 
-`load_env.py` runs at build time and **fails the build** if a key is missing or the URL is not `https://` (lab backends: `ALLOW_INSECURE_HTTP=1`). There are no hidden fallbacks.
+- **Security**: TLS encryption with pinned certificates, NTP-synchronized time validation, print destinations strictly restricted to private LAN IPv4 addresses, and cryptographic bridge token authentication (`X-Bridge-Token`).
+- **Reliability**: Lease-based dispatch protocol (claim -> ack -> sent -> complete/fail) with automatic redelivery deduplication to prevent double printing on network drops.
+- **Performance**: Persistent HTTPS keep-alive, TCP socket streaming without Nagle latency delays, and parallel dispatch to Bill, Kitchen KOT, and Juice KOT printers.
 
-## Flash
+---
+
+## Configuration
+
+All configuration is provided via environment variables (never committed to git):
+
+| Key | Description | Example / Note |
+|---|---|---|
+| `BACKEND_BASE_URL` | Base URL of the ARVI POS backend | `https://pos.yourcafe.com` (HTTPS required for production) |
+| `PRINTER_BRIDGE_TOKEN` | Shared secret token matching backend's `PRINTER_BRIDGE_TOKEN` | `<your_bridge_secret_token>` |
+| `WIFI_SSID` | Local Wi-Fi network SSID | `<your_wifi_ssid>` |
+| `WIFI_PASSWORD` | Local Wi-Fi password | `<your_wifi_password>` |
+| `BRIDGE_ID` | Identifier for the bridge device | `bridge-counter-01` |
+| `BILL_PRINTER_HOST` | Fallback Bill thermal printer IP | `192.168.1.200` |
+| `BILL_PRINTER_PORT` | Bill printer raw TCP port | `9100` |
+| `KITCHEN_PRINTER_HOST` | Fallback Kitchen KOT printer IP | `192.168.1.201` |
+| `KITCHEN_PRINTER_PORT` | Kitchen printer raw TCP port | `9100` |
+| `JUICE_PRINTER_HOST` | Fallback Juice KOT printer IP | `192.168.1.202` |
+| `JUICE_PRINTER_PORT` | Juice printer raw TCP port | `9100` |
+
+Copy `.env.example` to `.env` and fill in your site-specific values:
 
 ```bash
-./neram-print-bridge/flash-esp32.sh stg   # (or ./flash-esp32.sh from the repo root, or ./flash.sh here); shows URL/SSID/printers, asks to confirm
-./flash-esp32.sh prod       # must type "prod" to continue
+cp .env.example .env
+```
+
+`load_env.py` verifies configuration at build time and prevents building if required variables are missing.
+
+---
+
+## Flashing the Hardware
+
+```bash
+# Build and flash using PlatformIO wrapper
+./flash-esp32.sh
+
+# Or build without flashing
 ./flash-esp32.sh --build-only
 ```
-Options: `--port /dev/ttyACM0`, `--no-monitor`, `--yes` (not allowed for prod). Boot log should show `[WIFI] Connected`, `[NTP] Clock synchronized`, `[CLOUD] Bridge ID ...`.
 
-## How it works
+---
 
-```
-networkTask   long-poll /api/printer/bridge/poll (persistent TLS) -> decode -> per-printer queue -> ack-receipt
-PrintBill/Kot/Juice one worker per printer (kitchen + juice ahead of bill): sent -> TCP stream -> complete | fail
-maintenance   config sync (60s), printer probes (30s), heartbeat (20s), retry unreported completions
-```
+## Hardware Specifications
 
-- **Security:** TLS with pinned roots (ISRG X1/X2, `include/root_ca.h`), NTP-validated clock, print targets limited to private LAN IPv4 on ports 9100-9109, response/payload size caps, job-ID validation.
-- **Reliability:** follows the backend lease protocol (claim -> ack -> sent -> complete/fail, `ambiguous` on mid-write failures), dedupes redelivered jobs (never reprints), retries reports with backoff, exponential poll backoff, task watchdog (120 s).
-- **Speed:** keep-alive HTTPS connections, no per-job TLS handshake, 1460-byte TCP chunks with Nagle off, bill, kitchen KOT and juice KOT printed in parallel, heartbeat/probes never block printing, Wi-Fi power save off.
-
-## Hardware
-
-OLED I2C `SDA=8 SCL=9` (0x3C, SH1106 by default, see `config.h`), onboard WS2812 RGB LED. Partition table `default_16MB.csv`, PSRAM `qio_opi`.
-
-## Not yet done / limitations
-
-- The job queue is in RAM: a power cut loses queued (not yet printed) jobs; the server re-dispatches them after the claim lease expires.
-- No ESC/POS paper-out/offline status query before printing.
-- Root CAs are pinned in firmware; if the backend moves to a different CA family, update `include/root_ca.h` and reflash.
+- **Microcontroller**: ESP32-S3-WROOM-1 / ESP32-S3-DevKitC-1 (16MB Flash, 8MB Octal PSRAM)
+- **Display**: 0.96" or 1.3" I2C OLED (SH1106 / SSD1306, Address `0x3C`, `SDA=8`, `SCL=9`)
+- **Status Indicator**: Onboard WS2812 RGB LED (Blue = Connecting, Green = Healthy/Idle, Orange = Printing, Red = Alert/Error)
