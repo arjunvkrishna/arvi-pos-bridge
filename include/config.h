@@ -23,6 +23,9 @@
 #ifndef BACKEND_AUTH_TOKEN
 #error "BACKEND_AUTH_TOKEN missing - build through PlatformIO (load_env.py injects it from .env)"
 #endif
+#ifndef BACKEND_TENANT_CODE
+#error "BACKEND_TENANT_CODE missing - build through PlatformIO (load_env.py injects it from .env)"
+#endif
 #ifndef DEFAULT_WIFI_SSID
 #error "DEFAULT_WIFI_SSID missing - build through PlatformIO (load_env.py injects it from .env)"
 #endif

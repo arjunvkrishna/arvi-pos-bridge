@@ -38,6 +38,7 @@ with open(env_path, "r", encoding="utf-8") as f:
 REQUIRED = [
     "BACKEND_BASE_URL",
     "PRINTER_BRIDGE_TOKEN",
+    "TENANT_CODE",
     "WIFI_SSID",
 ]
 missing = [k for k in REQUIRED if not env_vars.get(k)]
@@ -58,6 +59,9 @@ if not parsed.hostname:
     fail(f"BACKEND_BASE_URL is not a valid URL: '{backend_url}'")
 
 bridge_token = env_vars["PRINTER_BRIDGE_TOKEN"]
+tenant_code = env_vars["TENANT_CODE"].lower()
+if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,28}[a-z0-9]", tenant_code):
+    fail("TENANT_CODE must be the cafe code from the SaaS console (3-30 chars: a-z, 0-9, '-')")
 wifi_ssid = env_vars["WIFI_SSID"]
 wifi_pass = env_vars["WIFI_PASSWORD"]
 bill_host = env_vars.get("BILL_PRINTER_HOST", "")
@@ -82,6 +86,7 @@ def c_str(value):
 
 print(f"\n[load_env.py] Using {env_path}")
 print(f"[load_env.py] -> BACKEND_BASE_URL:   {backend_url}")
+print(f"[load_env.py] -> TENANT_CODE:        {tenant_code}")
 print(f"[load_env.py] -> BRIDGE TOKEN:       {'*' * 6} ({len(bridge_token)} chars)")
 print(f"[load_env.py] -> WIFI_SSID:          {wifi_ssid}")
 print(f"[load_env.py] -> WIFI_PASSWORD:      {'*' * len(wifi_pass)}")
@@ -93,6 +98,7 @@ print(f"[load_env.py] -> BRIDGE_ID:          {bridge_id or '(auto: NERAM-ESP32-<
 env.Append(CPPDEFINES=[
     ("BACKEND_BASE_URL", c_str(backend_url)),
     ("BACKEND_AUTH_TOKEN", c_str(bridge_token)),
+    ("BACKEND_TENANT_CODE", c_str(tenant_code)),
     ("DEFAULT_WIFI_SSID", c_str(wifi_ssid)),
     ("DEFAULT_WIFI_PASS", c_str(wifi_pass)),
     ("DEFAULT_BILL_PRINTER_HOST", c_str(bill_host)),

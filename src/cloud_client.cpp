@@ -160,6 +160,7 @@ int CloudClient::request(Channel& ch, bool post, const String& path, const Strin
         ch.http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
         ch.http.setTimeout(timeoutMs);
         ch.http.addHeader("X-Bridge-Token", BACKEND_AUTH_TOKEN);
+        ch.http.addHeader("X-Tenant-Code", BACKEND_TENANT_CODE); // which cafe this bridge prints for
         if (post) ch.http.addHeader("Content-Type", "application/json");
 
         int code = post ? ch.http.POST(body ? *body : String("{}")) : ch.http.GET();
