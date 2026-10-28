@@ -29,6 +29,7 @@ All configuration is provided via environment variables (never committed to git)
 |---|---|---|
 | `BACKEND_BASE_URL` | Base URL of the ARVI POS backend | `https://pos.yourcafe.com` (HTTPS required for production) |
 | `TENANT_CODE` | Code of the cafe this bridge prints for (sent as `X-Tenant-Code`) | `bluedoor` |
+| `OUTLET_CODE` | Optional. Branch this bridge prints for (the branch code from the POS), sent as `X-Outlet-Code`. **Set it on every bridge of a cafe with more than one branch**, otherwise the bridge is handed print jobs of every branch | `WF` |
 | `PRINTER_BRIDGE_TOKEN` | This cafe's own bridge token (SaaS console shows it per cafe; not shared between cafes) | `<your_bridge_secret_token>` |
 | `WIFI_SSID` | Local Wi-Fi network SSID | `<your_wifi_ssid>` |
 | `WIFI_PASSWORD` | Local Wi-Fi password | `<your_wifi_password>` |

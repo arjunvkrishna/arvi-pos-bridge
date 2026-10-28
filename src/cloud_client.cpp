@@ -161,6 +161,9 @@ int CloudClient::request(Channel& ch, bool post, const String& path, const Strin
         ch.http.setTimeout(timeoutMs);
         ch.http.addHeader("X-Bridge-Token", BACKEND_AUTH_TOKEN);
         ch.http.addHeader("X-Tenant-Code", BACKEND_TENANT_CODE); // which cafe this bridge prints for
+#ifdef BACKEND_OUTLET_CODE
+        ch.http.addHeader("X-Outlet-Code", BACKEND_OUTLET_CODE); // which branch: only that branch's tickets are handed out
+#endif
         if (post) ch.http.addHeader("Content-Type", "application/json");
 
         int code = post ? ch.http.POST(body ? *body : String("{}")) : ch.http.GET();

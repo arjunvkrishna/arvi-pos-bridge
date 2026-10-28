@@ -71,6 +71,11 @@ juice_port = env_vars.get("JUICE_KOT_PRINTER_PORT", "9100")
 bill_port = env_vars.get("BILL_PRINTER_PORT", "9100")
 kot_port = env_vars.get("KOT_PRINTER_PORT", "9100")
 bridge_id = env_vars.get("BRIDGE_ID", "")
+# Optional: the branch (outlet code) this bridge prints for. A cafe with several branches needs one bridge per branch,
+# each naming its own branch, so a bridge only ever receives its own branch's tickets.
+outlet_code = env_vars.get("OUTLET_CODE", "")
+if outlet_code and not re.fullmatch(r"[A-Za-z0-9_-]{1,20}", outlet_code):
+    fail("OUTLET_CODE must be the branch code shown in the POS under Branches (letters, digits, '-' and '_', max 20 chars)")
 
 for name, port in (("BILL_PRINTER_PORT", bill_port), ("KOT_PRINTER_PORT", kot_port), ("JUICE_KOT_PRINTER_PORT", juice_port)):
     if not port.isdigit() or not (1 <= int(port) <= 65535):
@@ -87,6 +92,7 @@ def c_str(value):
 print(f"\n[load_env.py] Using {env_path}")
 print(f"[load_env.py] -> BACKEND_BASE_URL:   {backend_url}")
 print(f"[load_env.py] -> TENANT_CODE:        {tenant_code}")
+print(f"[load_env.py] -> OUTLET_CODE:        {outlet_code or '(none: receives tickets of every branch)'}")
 print(f"[load_env.py] -> BRIDGE TOKEN:       {'*' * 6} ({len(bridge_token)} chars)")
 print(f"[load_env.py] -> WIFI_SSID:          {wifi_ssid}")
 print(f"[load_env.py] -> WIFI_PASSWORD:      {'*' * len(wifi_pass)}")
@@ -109,3 +115,5 @@ env.Append(CPPDEFINES=[
     ("DEFAULT_KOT_PRINTER_PORT", kot_port),
     ("BRIDGE_ID_OVERRIDE", c_str(bridge_id)),
 ])
+if outlet_code:
+    env.Append(CPPDEFINES=[("BACKEND_OUTLET_CODE", c_str(outlet_code))])
